@@ -1,0 +1,27 @@
+allInOne:
+  enabled: true
+  replicas: 1
+  affinity: ""
+  nodeSelector: |
+    role: observability
+  tolerations: |
+    - key: dedicated
+      operator: Equal
+      value: observability
+      effect: NoSchedule
+  data:
+    type: persistentVolumeClaim
+    size: 100Gi
+    storageClass: local-path
+  s3:
+    enabled: true
+    enableAuth: true
+    createBuckets:
+      - name: mimir-blocks
+      - name: loki-chunks
+      - name: tempo-traces
+
+s3:
+  credentials:
+    admin:
+      existingSecret: seaweedfs-s3-admin
