@@ -1,0 +1,112 @@
+# --- Zbędne w labie: wbudowany MinIO (mamy SeaweedFS), ruler, alertmanager, cache'e ---
+minio:
+  enabled: false
+alertmanager:
+  enabled: false        # alerty robi Grafana (unified alerting)
+ruler:
+  enabled: false        # reguły recording/alerting dojdą później
+overrides_exporter:
+  enabled: false
+rollout_operator:
+  enabled: false        # potrzebny tylko przy zone-aware
+# chunks-cache, index-cache, metadata-cache, results-cache są domyślnie wyłączone
+
+# --- Jedna maszyna = brak sensu w zone-aware ---
+ingester:
+  replicas: 2
+  zoneAwareReplication:
+    enabled: false
+  nodeSelector:
+    role: observability
+  tolerations: &tol
+    - key: dedicated
+      operator: Equal
+      value: observability
+      effect: NoSchedule
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+  persistentVolume:
+    size: 10Gi
+    storageClass: local-path
+store_gateway:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+  nodeSelector:
+    role: observability
+  tolerations: *tol
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+  persistentVolume:
+    size: 5Gi
+    storageClass: local-path
+compactor:
+  nodeSelector:
+    role: observability
+  tolerations: *tol
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+  persistentVolume:
+    size: 5Gi
+    storageClass: local-path
+
+# --- Reszta komponentów: tylko miejsce i skromne zasoby ---
+distributor:
+  nodeSelector:
+    role: observability
+  tolerations: *tol
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+querier:
+  replicas: 1
+  nodeSelector:
+    role: observability
+  tolerations: *tol
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+query_frontend:
+  nodeSelector:
+    role: observability
+  tolerations: *tol
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+query_scheduler:
+  replicas: 1
+  nodeSelector:
+    role: observability
+  tolerations: *tol
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+gateway:
+  nodeSelector:
+    role: observability
+  tolerations: *tol
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+kafka:
+  nodeSelector:
+    role: observability
+  tolerations: *tol
+  persistence:
+    size: 5Gi
+    storageClassName: local-path
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+
+# --- Dostęp do S3 (SeaweedFS) ---
+global:
+  extraEnvFrom:
+    - secretRef:
+        name: seaweedfs-s3-admin   # ten sam Secret, który już utworzyłeś ręcznie
+
+mimir:
+  structuredConfig:
+    blocks_storage:
+      backend: s3
+      s3:
+        endpoint: seaweedfs-all-in-one.observability.svc:8333
+        bucket_name: mimir-blocks
+        insecure: true
+        bucket_lookup_type: path
+        access_key_id: ${admin_access_key_id}
+        secret_access_key: ${admin_secret_access_key}
