@@ -1,0 +1,65 @@
+# --- Tryb agent: scrape + remote_write, bez lokalnych zapytań i reguł ---
+prometheus:
+  agentMode: true
+  prometheusSpec:
+    replicas: 1
+    scrapeInterval: 30s
+    externalLabels:
+      cluster: homelab
+    nodeSelector:
+      role: observability
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: observability
+        effect: NoSchedule
+    resources:
+      requests: {cpu: 200m, memory: 512Mi}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+    # Bierz WSZYSTKIE ServiceMonitory/PodMonitory z klastra, nie tylko z labelem release
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    remoteWrite:
+      - url: http://mimir-gateway.observability.svc/api/v1/push
+        headers:
+          X-Scope-OrgID: homelab
+
+# --- Komponenty, których w agent mode nie potrzebujemy ---
+alertmanager:
+  enabled: false        # alerty będą z Grafany
+grafana:
+  enabled: false        # własny chart w Etapie 3
+defaultRules:
+  create: false         # reguły nie działają w agent mode
+
+# --- K3s nie wystawia tych komponentów do scrapowania ---
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
+coreDns:
+  enabled: false
+kubeDns:
+  enabled: false
+
+# --- Exportery ---
+prometheus-node-exporter:
+  tolerations:
+    - operator: Exists    # node-exporter ma działać na KAŻDYM węźle, także na tainted worker-3
+
+prometheusOperator:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
