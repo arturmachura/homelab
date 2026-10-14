@@ -1,0 +1,54 @@
+nodeSelector:
+  role: observability
+tolerations:
+  - key: dedicated
+    operator: Equal
+    value: observability
+    effect: NoSchedule
+
+resources:
+  requests: {cpu: 100m, memory: 256Mi}
+
+admin:
+  existingSecret: grafana-admin
+
+# Stan trzyma Postgres, więc wolumen na poda nie jest potrzebny
+persistence:
+  enabled: false
+
+# Hasło do bazy z sekretu utworzonego przez CloudNativePG
+envValueFrom:
+  GF_DATABASE_PASSWORD:
+    secretKeyRef:
+      name: grafana-db-app
+      key: password
+
+grafana.ini:
+  database:
+    type: postgres
+    host: grafana-db-rw.observability.svc:5432
+    name: grafana
+    user: grafana
+    ssl_mode: require
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Mimir
+        type: prometheus
+        access: proxy
+        url: http://mimir-gateway.observability.svc/prometheus
+        isDefault: true
+        jsonData:
+          prometheusType: Mimir
+          httpHeaderName1: X-Scope-OrgID
+        secureJsonData:
+          httpHeaderValue1: homelab
+
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  hosts:
+    - grafana.homelab.local
+  path: /
