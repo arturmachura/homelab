@@ -1,0 +1,57 @@
+# --- Wbudowany backend demo wyłączamy: mamy własny (Mimir, Grafana) ---
+jaeger:
+  enabled: false
+prometheus:
+  enabled: false
+grafana:
+  enabled: false
+opensearch:
+  enabled: false
+
+components:
+  # Część "AI assistant" wymaga klucza do LLM i niepotrzebnie zjada RAM
+  agent:
+    enabled: false
+  chatbot:
+    enabled: false
+  mcp:
+    enabled: false
+  # Generator ruchu: mniej użytkowników i bez przeglądarki (headless browser jest ciężki)
+  load-generator:
+    envOverrides:
+      - name: LOCUST_USERS
+        value: "3"
+      - name: LOCUST_BROWSER_TRAFFIC_ENABLED
+        value: "false"
+
+opentelemetry-collector:
+  # Metryki węzłów i klastra mamy już z node-exporter i kube-state-metrics
+  presets:
+    hostMetrics:
+      enabled: false
+    kubeletMetrics:
+      enabled: false
+    clusterMetrics:
+      enabled: false
+  config:
+    exporters:
+      # null usuwa klucz z domyślnej konfiguracji chartu
+      otlp_grpc/jaeger: null
+      otlp_http/prometheus: null
+      opensearch: null
+      otlp_http/mimir:
+        endpoint: http://mimir-gateway.observability.svc/otlp
+        headers:
+          X-Scope-OrgID: homelab
+    service:
+      pipelines:
+        traces:
+          # Tempo dojdzie w Etapie 6; do tego czasu trace'y tylko liczą metryki z rozpiętości
+          exporters: [debug, span_metrics]
+        metrics:
+          exporters: [otlp_http/mimir, debug]
+        logs:
+          # Loki dojdzie w Etapie 4
+          exporters: [debug]
+        profiles:
+          exporters: [debug]
