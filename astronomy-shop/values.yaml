@@ -36,9 +36,6 @@ opentelemetry-collector:
   config:
     exporters:
       # null usuwa klucz z domyślnej konfiguracji chartu
-      otlp_grpc/jaeger: null
-      otlp_http/prometheus: null
-      opensearch: null
       otlp_http/mimir:
         endpoint: http://mimir-gateway.observability.svc/otlp
         headers:
